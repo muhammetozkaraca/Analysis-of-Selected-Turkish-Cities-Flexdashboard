@@ -267,6 +267,40 @@ ggplot(data = kredi_data, aes(x = years, y = count, group = vars, color = vars))
   guides(fill=guide_legend(title="Loan Types"))
 ```
 
+### Urban Population in Cities
+
+```{r}
+population <- datasets[["Nüfus (1965-2000)"]]
+
+population$İller <- as.factor(population$İller)
+population$Year <- as.factor(population$Year)
+
+population_data <- population %>%
+  select(-c("Toplam", "Toplam-E", "Toplam-K", "Şehir-E","Şehir-K","Köy-T","Köy-K", "Köy-E")) %>%
+  filter(Year %in% c(1965,2000)) 
+
+ggplot(population_data) +
+  geom_linerange(aes(x = İller, ymin = 0, ymax = `Şehir-T`, colour = Year), 
+                 position = position_dodge(width = 1))+
+  geom_point(aes(x = İller, y = `Şehir-T`, colour = Year),
+             position = position_dodge(width = 1))+
+  scale_color_paletteer_d("nationalparkcolors::Arches",
+                     guide = guide_legend(direction = "vertical")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Urban Population in Cities",
+       subtitle = "A Comparison of 1965 and 2000",
+       caption = "Source: Turkish Statistical Institute",
+       x = "Cities",
+       y = "Population in  Million") +
+  scale_y_continuous(labels = label_number(suffix = "M", scale = 1e-6, accuracy = 1), 
+                     limits = c(0, 3000000)) +
+    theme(
+    text = element_text(family = "mono"),
+    plot.title = element_text(family = "sans", size = 18),
+    plot.subtitle = element_text(family = "mono")
+  ) 
+```
 
 
 ## Column {data-width="550"}
@@ -380,56 +414,6 @@ reactable(toki_total_tidied,
 ```
 
 
-# Population Dynamics
 
-## Column
 
-### Urban Population in Cities
-
-```{r}
-population <- datasets[["Nüfus (1965-2000)"]]
-
-population$İller <- as.factor(population$İller)
-population$Year <- as.factor(population$Year)
-
-population_data <- population %>%
-  select(-c("Toplam", "Toplam-E", "Toplam-K", "Şehir-E","Şehir-K","Köy-T","Köy-K", "Köy-E")) %>%
-  filter(Year %in% c(1965,2000)) 
-
-ggplot(population_data) +
-  geom_linerange(aes(x = İller, ymin = 0, ymax = `Şehir-T`, colour = Year), 
-                 position = position_dodge(width = 1))+
-  geom_point(aes(x = İller, y = `Şehir-T`, colour = Year),
-             position = position_dodge(width = 1))+
-  scale_color_paletteer_d("nationalparkcolors::Arches",
-                     guide = guide_legend(direction = "vertical")) +
-  coord_flip() +
-  theme_minimal() +
-  labs(title = "Urban Population in Cities",
-       subtitle = "A Comparison of 1965 and 2000",
-       caption = "Source: Turkish Statistical Institute",
-       x = "Cities",
-       y = "Population in  Million") +
-  scale_y_continuous(labels = label_number(suffix = "M", scale = 1e-6, accuracy = 1), 
-                     limits = c(0, 3000000)) +
-    theme(
-    text = element_text(family = "mono"),
-    plot.title = element_text(family = "sans", size = 18),
-    plot.subtitle = element_text(family = "mono")
-  ) 
-```
-
-### Plot B
-
-Will be added later!
-
-## Column
-
-### Plot C
-
-Will be added later!
-
-### Plot D
-
-Will be added later!
 
