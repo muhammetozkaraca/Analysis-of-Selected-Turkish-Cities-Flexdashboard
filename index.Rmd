@@ -1,0 +1,435 @@
+---
+title: "An Analysis of Selected Turkish Cities"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    source_code: "https://github.com/muhammetozkaraca/Analysis-of-Selected-Turkish-Cities-Flexdashboard"
+    theme:
+      version: 4
+      bg: "#7887A4"
+      fg: "#1e377f"  # changes reactable text color- yay!
+      primary: "#F6955E" # orange - does not seem to do anything for me here
+      navbar-bg: "#A8CDEC" # blue
+      headings-color: "#F6955E" # orange
+      base_font: 
+        google: Fraunces
+      heading_font:
+        google: Lato
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+#library(flexdashboard)
+library(tidyverse)
+library(readxl)
+library(scales)
+library(crosstalk)
+library(palmerpenguins)
+library(paletteer)
+library(reactable)
+library(reactablefmtr)
+library(extrafont)
+library(cranlogs)
+library(showtext)
+options(scipen=999)
+ggplot2::theme_set(theme_minimal())
+```
+
+# Socioeconomic Insights
+
+```{r eval=FALSE}
+extrafont::font_import()
+```
+
+```{r}
+read_excel_allsheets <- function(filename, tibble = FALSE) {
+  # I prefer straight data.frames
+  # but if you like tidyverse tibbles (the default with read_excel)
+  # then just pass tibble = TRUE
+  sheets <- readxl::excel_sheets(filename)
+  x <- lapply(sheets, function(X) readxl::read_excel(filename, sheet = X))
+  if(!tibble) x <- lapply(x, as.data.frame)
+  names(x) <- sheets
+  x
+}
+
+datasets <- read_excel_allsheets("Datasets.xlsx")
+bank_data <- datasets[["BANKA-DATA"]]
+```
+
+
+## Sidebar {.sidebar} {data-width=250} 
+-----------------------------------------------------------------------
+
+
+This website is dedicated to the analysis of data collected for an ongoing research at the Istanbul Policy Center that studies a variety of socioeconomic and population dynamics in a sample of Turkish cities. 
+
+This dashboard's primary objective is to visualize some of the more noteworthy discoveries produced from the collected data. Kindly note that this initiative is not formally associated with the Istanbul Policy Center, and that the author, [Muhammet Ozkaraca](https://muhammetozkaraca.netlify.app), is solely responsible for the endeavor.
+
+The list of selected cities for this project is:
+<ul>
+<li>Adana</li>
+<li>Bursa</li>
+<li>Diyarbakır</li>
+<li>Eskişehir</li>
+<li>Gaziantep</li>
+<li>İzmir</li>
+<li>Kayseri</li>
+<li>Konya</li>
+<li>Mersin</li>
+<li>Samsun</li>
+</ul>
+
+
+## Column {data-width="450" .tabset}
+
+### TOKİ Housing Data
+
+
+```{r warning=FALSE, message=FALSE}
+# from https://github.com/hadley/cran-downloads/blob/master/server.R
+
+toki_all <- datasets[["TOKİ"]]
+toki <- datasets[["TOKİ-KONUT"]]
+
+toki_graph <- toki %>%
+  group_by(Şehir) %>%
+  summarize(total = sum(Konut_Sayısı))
+
+toki_all <- toki_all %>%
+  group_by(Şehir) %>%
+  summarise(count = n())
+
+toki_bar_plot <- cbind(toki_all,toki_graph)
+
+toki_bar_plot <- toki_bar_plot %>%
+  select("Şehir", "count", "total")
+
+toki_bar_plot$Şehir <- as.factor(toki_bar_plot$Şehir)
+
+toki_all_graph <- ggplot(toki_bar_plot) +
+  # Make custom panel grid
+  geom_hline(
+    aes(yintercept = y), 
+    data.frame(y = c(0:1) * 100),
+    color = "lightgrey"
+  ) + 
+  # Add bars to represent the cumulative track lengths
+  # str_wrap(region, 5) wraps the text so each line has at most 5 characters
+  # (but it doesn't break long words!)
+  geom_col(
+    aes(
+      x = reorder(str_wrap(Şehir, 5), count),
+      y = count,
+      fill = total
+    ),
+    position = "dodge2",
+    show.legend = TRUE,
+    alpha = .9
+  ) +
+    # Lollipop shaft for mean gain per region
+  geom_segment(
+    aes(
+      x = reorder(str_wrap(Şehir, 5), count),
+      y = 0,
+      xend = reorder(str_wrap(Şehir, 5), count),
+      yend = 150
+    ),
+    linetype = "dashed",
+    color = "gray12"
+  ) + 
+  coord_polar()
+
+toki_all_graph +
+  scale_y_continuous(
+    limits = c(-100, 200),
+    expand = c(0, 0),
+    breaks = c(0, 25, 50, 75, 100)
+  ) + 
+  annotate(
+    x = 11, 
+    y = 10, 
+    label = "0", 
+    geom = "text", 
+    color = "gray12"
+  ) +
+  annotate(
+    x = 11, 
+    y = 60, 
+    label = "50", 
+    geom = "text", 
+    color = "gray12"
+  ) +
+  annotate(
+    x = 11, 
+    y = 110, 
+    label = "100", 
+    geom = "text", 
+    color = "gray12"
+  ) +
+  annotate(
+    x = 10.1, 
+    y = 115,
+    label = "Total Number of Projects",
+    geom = "text",
+    angle = -58,
+    color = "gray12",
+    size = 1.9) +
+  scale_fill_gradientn(
+    "Total Number of Residences (Under Construction + Completed)",
+    colours = c( "#6C5B7B","#C06C84","#F67280","#F8B195")
+  ) +
+  # Make the guide for the fill discrete
+  guides(
+    fill = guide_colorsteps(
+      barwidth = 23, barheight = .5, title.position = "top", title.hjust = .5
+    )
+  ) +
+  theme(
+    # Remove axis ticks and text
+    axis.title = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    plot.title = element_text(size = 14, hjust = 0.5, family = "mono"),
+    plot.subtitle = element_text(size = 12, hjust = 0.5, family = "mono"),
+    plot.caption = element_text(family = "mono"),
+    # Use gray text for the region names
+    axis.text.x = element_text(color = "gray12", size = 7),
+    # Move the legend to the bottom
+    legend.position = "bottom",
+    panel.background = element_rect(fill = "white", color = "white"),
+  ) +
+  labs(title = "TOKİ Housing Projects", 
+       subtitle = "A Comparison of Projects and Number of Residences",
+       caption = "Source: TOKİ-Housing Development Association")
+```
+
+### Distribution of Bank Loans Types
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+read_excel_allsheets <- function(filename, tibble = FALSE) {
+  # I prefer straight data.frames
+  # but if you like tidyverse tibbles (the default with read_excel)
+  # then just pass tibble = TRUE
+  sheets <- readxl::excel_sheets(filename)
+  x <- lapply(sheets, function(X) readxl::read_excel(filename, sheet = X))
+  if(!tibble) x <- lapply(x, as.data.frame)
+  names(x) <- sheets
+  x
+}
+
+datasets <- read_excel_allsheets("Datasets.xlsx")
+
+bank_data <- datasets[["BANKA-DATA"]] %>%
+  pivot_wider(names_from = Tür, values_from = `TL Cinsinden Değer`)
+
+kredi_data_cities <- bank_data %>%
+  select("İller", "years")
+
+kredi_data_values <- bank_data %>%
+  select("İht.Kred./ Tarım", "İht.Kred./ Gayrimenkul", "İht.Kred./ Mesleki")
+
+contiguous_mean <- function(vec) {
+  return( (zoo::na.locf0(vec) + zoo::na.locf0(vec, fromLast = TRUE)) / 2 )
+}
+
+kredi_data_values <- apply(kredi_data_values, 2, contiguous_mean)
+
+kredi_data <- cbind(kredi_data_cities, kredi_data_values)
+
+kredi_data <-  kredi_data %>%
+  pivot_longer(cols = c("İht.Kred./ Tarım", "İht.Kred./ Gayrimenkul", "İht.Kred./ Mesleki"), 
+               names_to = "vars", values_to = "value") %>%
+  group_by(years, vars) %>%
+  summarise(count  = sum (as.numeric(value)))
+
+
+ggplot(data = kredi_data, aes(x = years, y = count, group = vars, color = vars)) +
+  geom_line(size = 1) +
+  scale_y_continuous(labels = label_number(suffix = "B", scale = 1e-9), 
+                     limits = c(0, 30000000000)) +
+  scale_color_paletteer_d("nationalparkcolors::Arches",
+                          labels = c("Real Estate", "Vocational", "Agriculture")) +
+  labs(title = "Special Loans Distribution (1988-2020)",
+       subtitle = "A Comparison of Real Estate, Vocational, and Agriculture Loans",
+       caption = "Source: The Banks Association of Turkey",
+       x = "Years",
+       y = "Total Value in 10 Billions Turkish Lira",
+       color = "Loan Types") +
+  theme_minimal() +
+  theme(
+    text = element_text(family = "mono"),
+    plot.title = element_text(family = "sans", size = 18),
+    plot.subtitle = element_text(family = "mono")
+  ) +
+  guides(fill=guide_legend(title="Loan Types"))
+```
+
+
+
+## Column {data-width="550"}
+
+### Number of Foreign Currency Deposit Accounts in Banks
+
+```{r}
+savings <- datasets[["BANKA-DATA"]]
+
+savings <- rename(savings, "cities" = "İller")
+savings <- rename(savings, "vars" = "Tür")
+savings <- rename(savings, "value" = "TL Cinsinden Değer")
+
+savings_data <- savings %>%
+  filter (vars %in% c("Döviz Tevdiat Hesap Adedi")) %>%
+  filter(years %in% c(2010, 2020)) %>%
+  select(-c(vars)) %>%
+  pivot_wider(names_from = years, values_from = value)
+
+savings_data$cities <- as.factor(savings_data$cities)
+
+ggplot(savings_data) +
+  geom_segment( aes(x= cities, xend=cities, y=`2010`, yend=`2020`), color="grey") +
+  geom_point( aes(x=cities, y=`2010`), color=rgb(0.2,0.7,0.1,0.5), size=3 ) +
+  geom_point( aes(x=cities, y=`2020`), color=rgb(0.7,0.2,0.1,0.5), size=3 ) +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Change in Foreign Currency Deposit Accounts",
+       subtitle = "A Comparison of 2010 and 2020",
+       caption = "Source: The Banks Association of Turkey",
+       x = "Selected Cities",
+       y = "Number of Total Accounts") +
+  theme(
+    legend.position = "none",
+    text = element_text(family = "mono"),
+    plot.title = element_text(family = "sans", size = 16),
+    plot.subtitle = element_text(family = "Optima"))
+```
+
+### Toki Housing Data Table
+
+```{r}
+toki <- datasets[["TOKİ-KONUT"]]
+
+toki$Proje_Tipi <- as.factor(toki$Proje_Tipi)
+toki$Seviye <- as.numeric(sub("%", "", toki$Seviye))
+
+toki_subsetted <- toki %>%
+  select(-c("İlçe")) %>%
+  group_by(Şehir, Proje_Tipi) %>%
+  summarise(completion_rate = list(Seviye))
+
+toki_aggregated <- toki %>%
+  group_by(Şehir, Proje_Tipi) %>%
+  summarize(Toplam = sum(Konut_Sayısı)) 
+
+toki_total <- cbind(toki_subsetted, toki_aggregated)
+
+toki_total_tidied <- toki_total %>%
+  select(-c("Proje_Tipi...5", "Şehir...4"))
+
+toki_total_tidied <- rename(toki_total_tidied, "city" = "Şehir...1")
+toki_total_tidied <- rename(toki_total_tidied, "project_type" = "Proje_Tipi...2")
+
+toki_total_tidied$city <- as.factor(toki_total_tidied$city)
+
+levels(toki_total_tidied$project_type) <- c(
+  "Disaster Housing", "Lower Income Group", "Infrastructure and/or Social Equipment",
+  "Others", "Income Shared Project", "Administration Housing Application",
+  "Supply Tender", "Public Service Building", "Urban Transformation and Development Project",
+  "Housing + Social Facilities", "Demand Organization", "Agriculture Village"
+)
+
+reactable(toki_total_tidied,
+  style = list(fontFamily = 'Menlo',
+               fontSize = '14px'),
+  pagination = TRUE,
+  compact = TRUE,
+  borderless = FALSE,
+  striped = FALSE,
+  fullWidth = TRUE,
+  defaultColDef = colDef(
+    align = "center",
+    minWidth = 100
+  ),
+  theme = reactableTheme(
+    headerStyle = list(
+      "&:hover[aria-sort]" = list(background = "hsl(0, 0%, 96%)"),
+      "&[aria-sort='ascending'], &[aria-sort='descending']" = list(background = "hsl(0, 0%, 96%)"),
+      borderColor = "#555"
+    )
+  ),
+  columns = list(
+    city = colDef(
+      name = "City"),
+    project_type = colDef(
+      name = "Project Type"),
+    Toplam = colDef(
+      name = "Total Number of Residences"),
+    completion_rate = colDef(
+      name = "Project Completion Rate",
+      cell = react_sparkbar(
+        toki_total_tidied,
+        height = 30,
+        fill_color = "#4c9b9b",
+        statline_color = "orange",
+        statline_label_color = "orange",
+        statline_label_size = "1.1em",
+        statline = "mean"))
+    ))
+```
+
+
+# Population Dynamics
+
+## Column
+
+### Urban Population in Cities
+
+```{r}
+population <- datasets[["Nüfus (1965-2000)"]]
+
+population$İller <- as.factor(population$İller)
+population$Year <- as.factor(population$Year)
+
+population_data <- population %>%
+  select(-c("Toplam", "Toplam-E", "Toplam-K", "Şehir-E","Şehir-K","Köy-T","Köy-K", "Köy-E")) %>%
+  filter(Year %in% c(1965,2000)) 
+
+ggplot(population_data) +
+  geom_linerange(aes(x = İller, ymin = 0, ymax = `Şehir-T`, colour = Year), 
+                 position = position_dodge(width = 1))+
+  geom_point(aes(x = İller, y = `Şehir-T`, colour = Year),
+             position = position_dodge(width = 1))+
+  scale_color_paletteer_d("nationalparkcolors::Arches",
+                     guide = guide_legend(direction = "vertical")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Urban Population in Cities",
+       subtitle = "A Comparison of 1965 and 2000",
+       caption = "Source: Turkish Statistical Institute",
+       x = "Cities",
+       y = "Population in  Million") +
+  scale_y_continuous(labels = label_number(suffix = "M", scale = 1e-6, accuracy = 1), 
+                     limits = c(0, 3000000)) +
+    theme(
+    text = element_text(family = "mono"),
+    plot.title = element_text(family = "sans", size = 18),
+    plot.subtitle = element_text(family = "mono")
+  ) 
+```
+
+### Plot B
+
+Will be added later!
+
+## Column
+
+### Plot C
+
+Will be added later!
+
+### Plot D
+
+Will be added later!
+
